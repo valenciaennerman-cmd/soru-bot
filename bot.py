@@ -30,9 +30,7 @@ try:
 except ValueError:
     ALLOWED_USER_ID = 0
 NVIDIA_API_KEY_1 = os.getenv("NVIDIA_API_KEY_1")
-NVIDIA_API_KEY_2 = os.getenv("NVIDIA_API_KEY_2")
 NVIDIA_MODEL_PRIMARY = os.getenv("NVIDIA_MODEL_PRIMARY", "deepseek-ai/deepseek-v4-pro")
-NVIDIA_MODEL_FALLBACK = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/muse-glimmer-30b")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
@@ -216,12 +214,10 @@ def ask_with_fallback(chat_history: list) -> str:
     # 1. Deneme: DeepSeek Native (En kararli)
     # 2. Deneme: Gemini API + Gemini 3.8 Flash
     # 3. Deneme: API Key 1 + NVIDIA DeepSeek
-    # 4. Deneme: API Key 2 + Muse Glimmer
     strategies = [
         {"provider": "deepseek", "key": DEEPSEEK_API_KEY, "model": DEEPSEEK_MODEL, "desc": "DeepSeek Native API"},
         {"provider": "gemini", "key": GEMINI_API_KEY, "model": GEMINI_MODEL, "desc": "Gemini API + Gemini 3.8 Flash"},
-        {"provider": "nvidia", "key": NVIDIA_API_KEY_1, "model": NVIDIA_MODEL_PRIMARY, "desc": "API 1 + NVIDIA DeepSeek"},
-        {"provider": "nvidia", "key": NVIDIA_API_KEY_2, "model": NVIDIA_MODEL_FALLBACK, "desc": "API 2 + Muse Glimmer"}
+        {"provider": "nvidia", "key": NVIDIA_API_KEY_1, "model": NVIDIA_MODEL_PRIMARY, "desc": "API 1 + NVIDIA DeepSeek"}
     ]
     
     last_error = None
@@ -329,9 +325,6 @@ async def sorugemma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def sorugemini_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "gemini", GEMINI_MODEL, GEMINI_API_KEY)
 
-async def sorumuse_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await handle_specific_model(update, context, "nvidia", NVIDIA_MODEL_FALLBACK, NVIDIA_API_KEY_2)
-
 async def yazim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if ALLOWED_USER_ID and user_id != ALLOWED_USER_ID:
@@ -364,9 +357,10 @@ async def komutlar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤖 **Bot Komutlari:**\n\n"
         "🔸 `/soru <soru>`\nOtomatik model secer. (Onerilen)\n"
         "🔸 `/yazim <kelime>`\nTDK'ye gore dogru yazilisini soyler (TYT).\n"
-        "🔸 `/sorudeep <soru>`\nSadece DeepSeek V4.1 Flash kullanir.\n"
+        "🔸 `/sorudeep <soru>`\nSadece DeepSeek V4-Pro kullanir.\n"
         "🔸 `/sorugemini <soru>`\nSadece Gemini 3.8 Flash kullanir.\n"
-        "🔸 `/sorumuse <soru>`\nSadece Muse-Glimmer-30B kullanir.\n\n"
+        "🔸 `/sorugemma <soru>`\nSadece Gemma 4-31B kullanir.\n"
+        "🔸 `/sorugpt <soru>`\nSadece GPT-OSS 20B kullanir.\n\n"
         "🔸 `/komutlar`\nBu menuyu gosterir.\n\n"
         "📸 **Fotograf Gonderimi:**\nBota dogrudan fotograf atarak soruyu cozdurebilirsin."
     )
@@ -440,7 +434,6 @@ def main():
     app.add_handler(CommandHandler("sorugemma", sorugemma_command))
     app.add_handler(CommandHandler("sorugpt", sorugpt_command))
     app.add_handler(CommandHandler("sorugemini", sorugemini_command))
-    app.add_handler(CommandHandler("sorumuse", sorumuse_command))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     logger.info("Bot baslatildi (Multi-Model ve Gorsel Destekli).")
