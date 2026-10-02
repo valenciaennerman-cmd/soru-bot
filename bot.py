@@ -35,6 +35,7 @@ NVIDIA_MODEL_FALLBACK = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/muse-glimmer-30
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -101,6 +102,37 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
             error_str = str(e)
             if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str) and attempt < max_retries - 1:
                 logger.warning(f"NVIDIA API hatasi veya bos cevap, {attempt+1}. deneme basarisiz. 5 sn sonra tekrar deneniyor...")
+                time.sleep(5)
+                continue
+            raise e
+
+def ask_openrouter(question: str, model: str, api_key: str) -> str:
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+        timeout=25.0
+    )
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": question},
+                ],
+                temperature=0.3,
+                max_tokens=800,
+            )
+            content = response.choices[0].message.content
+            if not content or not content.strip():
+                raise ValueError("EmptyContent")
+            return content.strip()
+        except Exception as e:
+            error_str = str(e)
+            if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str) and attempt < max_retries - 1:
+                logger.warning(f"OpenRouter API hatasi veya bos cevap, {attempt+1}. deneme basarisiz. 5 sn sonra tekrar deneniyor...")
                 time.sleep(5)
                 continue
             raise e
@@ -243,6 +275,8 @@ async def handle_specific_model(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         if provider == "nvidia":
             answer = ask_nvidia(question, model, api_key)
+        elif provider == "openrouter":
+            answer = ask_openrouter(question, model, api_key)
         else:
             answer = ask_gemini(question, model, api_key)
         await update.message.reply_text(answer)
@@ -251,6 +285,9 @@ async def handle_specific_model(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def sorudeep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "nvidia", NVIDIA_MODEL_PRIMARY, NVIDIA_API_KEY_1)
+
+async def sorugemma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await handle_specific_model(update, context, "openrouter", "google/gemma-4-31b-it", OPENROUTER_API_KEY)
 
 async def sorugemini_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "gemini", GEMINI_MODEL, GEMINI_API_KEY)
@@ -335,6 +372,7 @@ def main():
     app.add_handler(CommandHandler("soru", soru_command))
     app.add_handler(CommandHandler("yazim", yazim_command))
     app.add_handler(CommandHandler("sorudeep", sorudeep_command))
+    app.add_handler(CommandHandler("sorugemma", sorugemma_command))
     app.add_handler(CommandHandler("sorugemini", sorugemini_command))
     app.add_handler(CommandHandler("sorumuse", sorumuse_command))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
