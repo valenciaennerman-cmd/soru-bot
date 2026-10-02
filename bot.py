@@ -39,6 +39,7 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro")
 GPT_OSS_MODEL = os.getenv("GPT_OSS_MODEL", "openai/gpt-oss-20b")
+GPT_OSS_API_KEY = os.getenv("GPT_OSS_API_KEY", NVIDIA_API_KEY_1)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -320,7 +321,7 @@ async def sorudeep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "deepseek", DEEPSEEK_MODEL, DEEPSEEK_API_KEY)
 
 async def sorugpt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await handle_specific_model(update, context, "nvidia", GPT_OSS_MODEL, NVIDIA_API_KEY_1)
+    await handle_specific_model(update, context, "nvidia", GPT_OSS_MODEL, GPT_OSS_API_KEY)
 
 async def sorugemma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "nvidia", "google/gemma-4-31b-it", NVIDIA_API_KEY_1)
