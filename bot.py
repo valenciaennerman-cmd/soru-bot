@@ -3,6 +3,7 @@ import time
 import json
 import re
 import os
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from dotenv import load_dotenv
@@ -80,7 +81,7 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
     client = OpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
         api_key=api_key,
-        timeout=90.0
+        timeout=180.0
     )
     
     max_retries = 3
@@ -101,7 +102,7 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
             return content.strip()
         except Exception as e:
             error_str = str(e)
-            if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str) and attempt < max_retries - 1:
+            if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str or "timeout" in error_str.lower()) and attempt < max_retries - 1:
                 logger.warning(f"NVIDIA API hatasi veya bos cevap, {attempt+1}. deneme basarisiz. 5 sn sonra tekrar deneniyor...")
                 time.sleep(5)
                 continue
@@ -111,7 +112,7 @@ def ask_deepseek(question: str, model: str, api_key: str) -> str:
     client = OpenAI(
         base_url="https://api.deepseek.com/v1",
         api_key=api_key,
-        timeout=90.0
+        timeout=180.0
     )
     
     max_retries = 3
@@ -132,7 +133,7 @@ def ask_deepseek(question: str, model: str, api_key: str) -> str:
             return content.strip()
         except Exception as e:
             error_str = str(e)
-            if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str) and attempt < max_retries - 1:
+            if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str or "timeout" in error_str.lower()) and attempt < max_retries - 1:
                 logger.warning(f"DeepSeek API hatasi veya bos cevap, {attempt+1}. deneme basarisiz. 5 sn sonra tekrar deneniyor...")
                 time.sleep(5)
                 continue
@@ -247,7 +248,8 @@ async def soru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Yazim duzeltildi: '{eski_soru}' -> '{question}'")
 
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    answer = ask_with_fallback(question)
+    loop = asyncio.get_running_loop()
+    answer = await loop.run_in_executor(None, ask_with_fallback, question)
     await update.message.reply_text(answer)
 
 
@@ -274,12 +276,13 @@ async def handle_specific_model(update: Update, context: ContextTypes.DEFAULT_TY
         return
         
     try:
+        loop = asyncio.get_running_loop()
         if provider == "nvidia":
-            answer = ask_nvidia(question, model, api_key)
+            answer = await loop.run_in_executor(None, ask_nvidia, question, model, api_key)
         elif provider == "deepseek":
-            answer = ask_deepseek(question, model, api_key)
+            answer = await loop.run_in_executor(None, ask_deepseek, question, model, api_key)
         else:
-            answer = ask_gemini(question, model, api_key)
+            answer = await loop.run_in_executor(None, ask_gemini, question, model, api_key)
         await update.message.reply_text(answer)
     except Exception as e:
         await update.message.reply_text(f"Hata olustu: {e}")
@@ -315,7 +318,8 @@ async def yazim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     soru_formati = f"'{duzeltilmis_kelime}' nasil yazilir? TDK'ye gore dogrudan kisa ve net cevabi ver, aciklama yapma."
         
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    answer = ask_with_fallback(soru_formati)
+    loop = asyncio.get_running_loop()
+    answer = await loop.run_in_executor(None, ask_with_fallback, soru_formati)
     await update.message.reply_text(answer)
 
 async def komutlar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -358,7 +362,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Gemini API anahtari ayarli degil! Gorselleri sadece Gemini okuyabilir.")
             return
             
-        answer = ask_gemini_vision(caption, photo_bytes, GEMINI_API_KEY)
+        loop = asyncio.get_running_loop()
+        answer = await loop.run_in_executor(None, ask_gemini_vision, caption, photo_bytes, GEMINI_API_KEY)
         await update.message.reply_text(answer)
     except Exception as e:
         logger.error(f"Gorsel islenirken hata: {e}")
