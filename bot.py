@@ -30,7 +30,7 @@ except ValueError:
     ALLOWED_USER_ID = 0
 NVIDIA_API_KEY_1 = os.getenv("NVIDIA_API_KEY_1")
 NVIDIA_API_KEY_2 = os.getenv("NVIDIA_API_KEY_2")
-NVIDIA_MODEL_PRIMARY = os.getenv("NVIDIA_MODEL_PRIMARY", "deepseek-ai/deepseek-v4.1-flash")
+NVIDIA_MODEL_PRIMARY = os.getenv("NVIDIA_MODEL_PRIMARY", "deepseek-ai/deepseek-v4-pro")
 NVIDIA_MODEL_FALLBACK = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/muse-glimmer-30b")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
