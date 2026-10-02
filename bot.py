@@ -80,7 +80,7 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
     client = OpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
         api_key=api_key,
-        timeout=25.0
+        timeout=90.0
     )
     
     max_retries = 3
@@ -111,7 +111,7 @@ def ask_deepseek(question: str, model: str, api_key: str) -> str:
     client = OpenAI(
         base_url="https://api.deepseek.com/v1",
         api_key=api_key,
-        timeout=25.0
+        timeout=90.0
     )
     
     max_retries = 3
