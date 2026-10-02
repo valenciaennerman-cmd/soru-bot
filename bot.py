@@ -211,12 +211,14 @@ def ask_gemini_vision(question: str, image_bytes: bytearray, api_key: str) -> st
             raise e
 
 def ask_with_fallback(chat_history: list) -> str:
-    # 1. Deneme: Gemini API + Gemini 3.8 Flash
-    # 2. Deneme: API Key 1 + DeepSeek
-    # 3. Deneme: API Key 2 + Muse Glimmer
+    # 1. Deneme: DeepSeek Native (En kararli)
+    # 2. Deneme: Gemini API + Gemini 3.8 Flash
+    # 3. Deneme: API Key 1 + NVIDIA DeepSeek
+    # 4. Deneme: API Key 2 + Muse Glimmer
     strategies = [
+        {"provider": "deepseek", "key": DEEPSEEK_API_KEY, "model": DEEPSEEK_MODEL, "desc": "DeepSeek Native API"},
         {"provider": "gemini", "key": GEMINI_API_KEY, "model": GEMINI_MODEL, "desc": "Gemini API + Gemini 3.8 Flash"},
-        {"provider": "nvidia", "key": NVIDIA_API_KEY_1, "model": NVIDIA_MODEL_PRIMARY, "desc": "API 1 + DeepSeek"},
+        {"provider": "nvidia", "key": NVIDIA_API_KEY_1, "model": NVIDIA_MODEL_PRIMARY, "desc": "API 1 + NVIDIA DeepSeek"},
         {"provider": "nvidia", "key": NVIDIA_API_KEY_2, "model": NVIDIA_MODEL_FALLBACK, "desc": "API 2 + Muse Glimmer"}
     ]
     
@@ -233,7 +235,9 @@ def ask_with_fallback(chat_history: list) -> str:
 
         try:
             logger.info(f"Deneyelen strateji: {strategy['desc']}")
-            if provider == "nvidia":
+            if provider == "deepseek":
+                return ask_deepseek(chat_history, model, api_key)
+            elif provider == "nvidia":
                 return ask_nvidia(chat_history, model, api_key)
             elif provider == "gemini":
                 return ask_gemini(chat_history, model, api_key)
