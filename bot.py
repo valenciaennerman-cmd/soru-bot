@@ -69,17 +69,29 @@ SYSTEM_PROMPT = (
     "Kurallar: sadece duz metin, markdown/emoji yok. "
     "Kullanici uzun cevap istemedikce kisa tut. Giris cumlesi kurma, dogrudan cevapla. "
     "ÖNEMLİ KURAL: Matematik ve mantık sorularını doğru çözmek için mutlaka önce adım adım düşünmelisin. Tüm düşüncelerini, hesaplamalarını ve ara işlemlerini <dusunce> ve </dusunce> etiketleri arasına yaz. Bu etiketlerin dışına (en sona) SADECE bulduğun net cevabı çok kısa bir şekilde yaz. Akıllı saat ekranı dar olduğu için <dusunce> kısmı kullanıcıdan gizlenecektir. "
+    "GÖRSEL SORU KURALI: Eğer kullanıcı sana bir soru atarsa ve soruda 'şekildeki', 'yandaki grafikte', 'görsele göre' gibi ifadelere atıf varsa AMA o görselin detayları metinde EKSİKSE, ASLA kafadan uydurma veya varsayım yapma. Bunun yerine kullanıcıya dönüp eksik olan görsel bilgiyi sor. Örn: 'Şekildeki üçgenin açıları kaç derece?' veya 'Tablodaki değerleri okur musun?'. Kullanıcı eksik bilgiyi verince soruyu çöz. "
     "TYT Turkce / Yazim Kurallari soruldugunda TDK'ye gore 'Ayri yazilir: ...' veya 'Birlesik yazilir: ...' seklinde TAK diye kisa ve net dogru cevabi ver. "
     "Emin degilsen uydurma, bilmedigini soyle. "
     "Soru hangi dildeyse o dilde cevap ver."
 )
+
+USER_HISTORIES = {}
+
+def update_history(user_id: int, role: str, content: str) -> list:
+    if user_id not in USER_HISTORIES:
+        USER_HISTORIES[user_id] = []
+    USER_HISTORIES[user_id].append({"role": role, "content": content})
+    # Son 6 mesaji (3 soru-cevap) tut
+    if len(USER_HISTORIES[user_id]) > 6:
+        USER_HISTORIES[user_id] = USER_HISTORIES[user_id][-6:]
+    return USER_HISTORIES[user_id]
 
 def clean_response(content: str) -> str:
     # <dusunce> ... </dusunce> bloklarini metinden tamamen temizle
     cleaned = re.sub(r'<dusunce>.*?</dusunce>', '', content, flags=re.DOTALL).strip()
     return cleaned if cleaned else content.strip()
 
-def ask_nvidia(question: str, model: str, api_key: str) -> str:
+def ask_nvidia(chat_history: list, model: str, api_key: str) -> str:
     client = OpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
         api_key=api_key,
@@ -89,12 +101,10 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
     max_retries = 3
     for attempt in range(max_retries):
         try:
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + chat_history
             response = client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": question},
-                ],
+                messages=messages,
                 temperature=0.3,
                 max_tokens=800,
             )
@@ -110,7 +120,7 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
                 continue
             raise e
 
-def ask_deepseek(question: str, model: str, api_key: str) -> str:
+def ask_deepseek(chat_history: list, model: str, api_key: str) -> str:
     client = OpenAI(
         base_url="https://api.deepseek.com/v1",
         api_key=api_key,
@@ -120,12 +130,10 @@ def ask_deepseek(question: str, model: str, api_key: str) -> str:
     max_retries = 3
     for attempt in range(max_retries):
         try:
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}] + chat_history
             response = client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": question},
-                ],
+                messages=messages,
                 temperature=0.3,
                 max_tokens=800,
             )
@@ -141,14 +149,20 @@ def ask_deepseek(question: str, model: str, api_key: str) -> str:
                 continue
             raise e
 
-def ask_gemini(question: str, model: str, api_key: str) -> str:
+def ask_gemini(chat_history: list, model: str, api_key: str) -> str:
     gemini_client = genai.Client(api_key=api_key)
+    
+    contents = []
+    for msg in chat_history:
+        role = "user" if msg["role"] == "user" else "model"
+        contents.append({"role": role, "parts": [{"text": msg["content"]}]})
+        
     max_retries = 3
     for attempt in range(max_retries):
         try:
             response = gemini_client.models.generate_content(
                 model=model,
-                contents=question,
+                contents=contents,
                 config=genai.types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
                     temperature=0.3,
@@ -196,7 +210,7 @@ def ask_gemini_vision(question: str, image_bytes: bytearray, api_key: str) -> st
                 continue
             raise e
 
-def ask_with_fallback(question: str) -> str:
+def ask_with_fallback(chat_history: list) -> str:
     # 1. Deneme: Gemini API + Gemini 3.8 Flash
     # 2. Deneme: API Key 1 + DeepSeek
     # 3. Deneme: API Key 2 + Muse Glimmer
@@ -220,9 +234,9 @@ def ask_with_fallback(question: str) -> str:
         try:
             logger.info(f"Deneyelen strateji: {strategy['desc']}")
             if provider == "nvidia":
-                return ask_nvidia(question, model, api_key)
+                return ask_nvidia(chat_history, model, api_key)
             elif provider == "gemini":
-                return ask_gemini(question, model, api_key)
+                return ask_gemini(chat_history, model, api_key)
         except Exception as e:
             last_error = e
             logger.warning(f"Strateji '{strategy['desc']}' basarisiz oldu: {e}")
@@ -251,7 +265,11 @@ async def soru_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     loop = asyncio.get_running_loop()
-    answer = await loop.run_in_executor(None, ask_with_fallback, question)
+    
+    chat_history = update_history(user_id, "user", question)
+    answer = await loop.run_in_executor(None, ask_with_fallback, chat_history)
+    update_history(user_id, "assistant", answer)
+    
     await update.message.reply_text(answer)
 
 
@@ -279,12 +297,16 @@ async def handle_specific_model(update: Update, context: ContextTypes.DEFAULT_TY
         
     try:
         loop = asyncio.get_running_loop()
+        chat_history = update_history(user_id, "user", question)
+        
         if provider == "nvidia":
-            answer = await loop.run_in_executor(None, ask_nvidia, question, model, api_key)
+            answer = await loop.run_in_executor(None, ask_nvidia, chat_history, model, api_key)
         elif provider == "deepseek":
-            answer = await loop.run_in_executor(None, ask_deepseek, question, model, api_key)
+            answer = await loop.run_in_executor(None, ask_deepseek, chat_history, model, api_key)
         else:
-            answer = await loop.run_in_executor(None, ask_gemini, question, model, api_key)
+            answer = await loop.run_in_executor(None, ask_gemini, chat_history, model, api_key)
+            
+        update_history(user_id, "assistant", answer)
         await update.message.reply_text(answer)
     except Exception as e:
         await update.message.reply_text(f"Hata olustu: {e}")
@@ -321,7 +343,11 @@ async def yazim_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
     loop = asyncio.get_running_loop()
-    answer = await loop.run_in_executor(None, ask_with_fallback, soru_formati)
+    
+    chat_history = update_history(user_id, "user", soru_formati)
+    answer = await loop.run_in_executor(None, ask_with_fallback, chat_history)
+    update_history(user_id, "assistant", answer)
+    
     await update.message.reply_text(answer)
 
 async def komutlar_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -371,6 +397,28 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Gorsel islenirken hata: {e}")
         await update.message.reply_text(f"Gorsel islenirken hata olustu: {e}")
 
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if ALLOWED_USER_ID and user_id != ALLOWED_USER_ID:
+        return
+    question = update.message.text
+    if not question:
+        return
+        
+    eski_soru = question
+    question = duzelt_metin(question)
+    if eski_soru != question:
+        logger.info(f"Yazim duzeltildi: '{eski_soru}' -> '{question}'")
+
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    loop = asyncio.get_running_loop()
+    
+    chat_history = update_history(user_id, "user", question)
+    answer = await loop.run_in_executor(None, ask_with_fallback, chat_history)
+    update_history(user_id, "assistant", answer)
+    
+    await update.message.reply_text(answer)
+
 def main():
     if not TELEGRAM_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN tanimli degil.")
@@ -384,6 +432,7 @@ def main():
     app.add_handler(CommandHandler("sorugemini", sorugemini_command))
     app.add_handler(CommandHandler("sorumuse", sorumuse_command))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     logger.info("Bot baslatildi (Multi-Model ve Gorsel Destekli).")
     
     # Render icin Flask sunucusunu arka planda baslat
