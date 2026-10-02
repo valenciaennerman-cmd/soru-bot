@@ -287,7 +287,7 @@ async def sorudeep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "nvidia", NVIDIA_MODEL_PRIMARY, NVIDIA_API_KEY_1)
 
 async def sorugemma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await handle_specific_model(update, context, "openrouter", "google/gemma-4-31b-it", OPENROUTER_API_KEY)
+    await handle_specific_model(update, context, "nvidia", "google/gemma-4-31b-it", NVIDIA_API_KEY_1)
 
 async def sorugemini_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "gemini", GEMINI_MODEL, GEMINI_API_KEY)
