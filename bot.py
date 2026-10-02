@@ -38,6 +38,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro")
+GPT_OSS_MODEL = os.getenv("GPT_OSS_MODEL", "openai/gpt-oss-20b")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -318,6 +319,9 @@ async def handle_specific_model(update: Update, context: ContextTypes.DEFAULT_TY
 async def sorudeep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "deepseek", DEEPSEEK_MODEL, DEEPSEEK_API_KEY)
 
+async def sorugpt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await handle_specific_model(update, context, "nvidia", GPT_OSS_MODEL, NVIDIA_API_KEY_1)
+
 async def sorugemma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "nvidia", "google/gemma-4-31b-it", NVIDIA_API_KEY_1)
 
@@ -433,6 +437,7 @@ def main():
     app.add_handler(CommandHandler("yazim", yazim_command))
     app.add_handler(CommandHandler("sorudeep", sorudeep_command))
     app.add_handler(CommandHandler("sorugemma", sorugemma_command))
+    app.add_handler(CommandHandler("sorugpt", sorugpt_command))
     app.add_handler(CommandHandler("sorugemini", sorugemini_command))
     app.add_handler(CommandHandler("sorumuse", sorumuse_command))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
