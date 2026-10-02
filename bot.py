@@ -9,8 +9,19 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from google import genai
 from google.genai import types
+import threading
+from flask import Flask
 
 load_dotenv()
+
+keep_alive_app = Flask(__name__)
+@keep_alive_app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    keep_alive_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 try:
@@ -328,6 +339,12 @@ def main():
     app.add_handler(CommandHandler("sorumuse", sorumuse_command))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     logger.info("Bot baslatildi (Multi-Model ve Gorsel Destekli).")
+    
+    # Render icin Flask sunucusunu arka planda baslat
+    t = threading.Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+    
     app.run_polling()
 
 
