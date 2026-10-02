@@ -67,15 +67,17 @@ def duzelt_metin(metin: str) -> str:
 SYSTEM_PROMPT = (
     "Akilli saat ekraninda okunan kisa Q&A asistanisin. "
     "Kurallar: sadece duz metin, markdown/emoji yok. "
-    "Cevap en fazla 3-4 kisa cumle (~50 kelime). "
-    "Kullanici uzun cevap istemedikce asma. Giris cumlesi kurma, dogrudan cevapla. "
-    "Matematik: once sonuc, istenirse tek cumle gerekce, ara islem yazma. "
-    "TYT Turkce / Yazim Kurallari soruldugunda (orn: X nasil yazilir, birlesik mi ayri mi?) TDK'ye gore 'Ayri yazilir: ...' veya 'Birlesik yazilir: ...' seklinde TAK diye kisa ve net dogru cevabi ver, aciklama yapma. "
-    "Bilgi: en onemli bilgiyi ilk cumlede ver. "
-    "Guncel/degisen bilgi istenirse erisimin olmadigini belirt. "
+    "Kullanici uzun cevap istemedikce kisa tut. Giris cumlesi kurma, dogrudan cevapla. "
+    "ÖNEMLİ KURAL: Matematik ve mantık sorularını doğru çözmek için mutlaka önce adım adım düşünmelisin. Tüm düşüncelerini, hesaplamalarını ve ara işlemlerini <dusunce> ve </dusunce> etiketleri arasına yaz. Bu etiketlerin dışına (en sona) SADECE bulduğun net cevabı çok kısa bir şekilde yaz. Akıllı saat ekranı dar olduğu için <dusunce> kısmı kullanıcıdan gizlenecektir. "
+    "TYT Turkce / Yazim Kurallari soruldugunda TDK'ye gore 'Ayri yazilir: ...' veya 'Birlesik yazilir: ...' seklinde TAK diye kisa ve net dogru cevabi ver. "
     "Emin degilsen uydurma, bilmedigini soyle. "
     "Soru hangi dildeyse o dilde cevap ver."
 )
+
+def clean_response(content: str) -> str:
+    # <dusunce> ... </dusunce> bloklarini metinden tamamen temizle
+    cleaned = re.sub(r'<dusunce>.*?</dusunce>', '', content, flags=re.DOTALL).strip()
+    return cleaned if cleaned else content.strip()
 
 def ask_nvidia(question: str, model: str, api_key: str) -> str:
     client = OpenAI(
@@ -99,7 +101,7 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
             content = response.choices[0].message.content
             if not content or not content.strip():
                 raise ValueError("EmptyContent")
-            return content.strip()
+            return clean_response(content)
         except Exception as e:
             error_str = str(e)
             if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str or "timeout" in error_str.lower()) and attempt < max_retries - 1:
@@ -130,7 +132,7 @@ def ask_deepseek(question: str, model: str, api_key: str) -> str:
             content = response.choices[0].message.content
             if not content or not content.strip():
                 raise ValueError("EmptyContent")
-            return content.strip()
+            return clean_response(content)
         except Exception as e:
             error_str = str(e)
             if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str or "timeout" in error_str.lower()) and attempt < max_retries - 1:
@@ -156,7 +158,7 @@ def ask_gemini(question: str, model: str, api_key: str) -> str:
             content = response.text
             if not content or not content.strip():
                 raise ValueError("EmptyContent")
-            return content.strip()
+            return clean_response(content)
         except Exception as e:
             error_str = str(e)
             if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str) and attempt < max_retries - 1:
@@ -185,7 +187,7 @@ def ask_gemini_vision(question: str, image_bytes: bytearray, api_key: str) -> st
             content = response.text
             if not content or not content.strip():
                 raise ValueError("EmptyContent")
-            return content.strip()
+            return clean_response(content)
         except Exception as e:
             error_str = str(e)
             if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str) and attempt < max_retries - 1:
