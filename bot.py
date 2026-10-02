@@ -35,7 +35,8 @@ NVIDIA_MODEL_FALLBACK = os.getenv("NVIDIA_MODEL_FALLBACK", "meta/muse-glimmer-30
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-pro")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -106,9 +107,9 @@ def ask_nvidia(question: str, model: str, api_key: str) -> str:
                 continue
             raise e
 
-def ask_openrouter(question: str, model: str, api_key: str) -> str:
+def ask_deepseek(question: str, model: str, api_key: str) -> str:
     client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
+        base_url="https://api.deepseek.com/v1",
         api_key=api_key,
         timeout=25.0
     )
@@ -132,7 +133,7 @@ def ask_openrouter(question: str, model: str, api_key: str) -> str:
         except Exception as e:
             error_str = str(e)
             if ("503" in error_str or "429" in error_str or "EmptyContent" in error_str) and attempt < max_retries - 1:
-                logger.warning(f"OpenRouter API hatasi veya bos cevap, {attempt+1}. deneme basarisiz. 5 sn sonra tekrar deneniyor...")
+                logger.warning(f"DeepSeek API hatasi veya bos cevap, {attempt+1}. deneme basarisiz. 5 sn sonra tekrar deneniyor...")
                 time.sleep(5)
                 continue
             raise e
@@ -275,8 +276,8 @@ async def handle_specific_model(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         if provider == "nvidia":
             answer = ask_nvidia(question, model, api_key)
-        elif provider == "openrouter":
-            answer = ask_openrouter(question, model, api_key)
+        elif provider == "deepseek":
+            answer = ask_deepseek(question, model, api_key)
         else:
             answer = ask_gemini(question, model, api_key)
         await update.message.reply_text(answer)
@@ -284,7 +285,7 @@ async def handle_specific_model(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(f"Hata olustu: {e}")
 
 async def sorudeep_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await handle_specific_model(update, context, "nvidia", NVIDIA_MODEL_PRIMARY, NVIDIA_API_KEY_1)
+    await handle_specific_model(update, context, "deepseek", DEEPSEEK_MODEL, DEEPSEEK_API_KEY)
 
 async def sorugemma_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_specific_model(update, context, "nvidia", "google/gemma-4-31b-it", NVIDIA_API_KEY_1)
